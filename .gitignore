@@ -1,0 +1,34 @@
+node_modules/
+**/node_modules/
+
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+client/dist/
+server/dist/
+
+uploads/
+server/uploads/
+
+coverage/
+*.log
+npm-debug.log*
+
+.DS_Store
+Thumbs.db
+
+
+# Private resume test fixture
+server/tests/fixtures/Ansil_Kumar_Resume.pdf
+
+# Local backups and archives
+google-link-backup/
+resumatch-final-ui-source.zip
+RESUMATCH_FIREBASE_SETUP.md
+# Local-only backup and unused source
+/src/
+**/*.backup
