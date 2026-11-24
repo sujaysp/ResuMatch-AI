@@ -60,10 +60,19 @@ const APP_VIEWS = new Set([
 ]);
 
 function readBrowserRoute() {
-  const segments = window.location.hash
+  const legacyHashSegments = window.location.hash
     .replace(/^#\/?/, "")
     .split("/")
     .filter(Boolean);
+
+  const pathSegments = window.location.pathname
+    .split("/")
+    .filter(Boolean);
+
+  // Support existing shared hash links during migration.
+  const segments = window.location.hash.startsWith("#/")
+    ? legacyHashSegments
+    : pathSegments;
 
   const requestedView = segments[0] || "dashboard";
 
@@ -71,10 +80,15 @@ function readBrowserRoute() {
     ? requestedView
     : "dashboard";
 
-  const reportId =
-    view === "report" && segments[1]
-      ? decodeURIComponent(segments[1])
-      : null;
+  let reportId = null;
+
+  if (view === "report" && segments[1]) {
+    try {
+      reportId = decodeURIComponent(segments[1]);
+    } catch {
+      reportId = null;
+    }
+  }
 
   return { view, reportId };
 }
@@ -85,11 +99,15 @@ function writeBrowserRoute(view, reportId = null, replace = false) {
       ? `/${encodeURIComponent(reportId)}`
       : "";
 
-  const hash = `#/${view}${suffix}`;
+  const path = `/${view}${suffix}`;
+  const url = `${path}${window.location.search}`;
 
-  if (window.location.hash === hash) return;
-
-  const url = `${window.location.pathname}${window.location.search}${hash}`;
+  if (
+    window.location.pathname === path &&
+    !window.location.hash
+  ) {
+    return;
+  }
 
   const method = replace ? "replaceState" : "pushState";
 
@@ -1591,42 +1609,47 @@ export default function App() {
   ========================================== */
 
   useEffect(() => {
-    const restoreRouteFromBrowserHistory = () => {
-      const route = readBrowserRoute();
+  const restoreRouteFromBrowserHistory = () => {
+    const route = readBrowserRoute();
 
-      setView(route.view);
-      setMobileNavOpen(false);
-
-      if (
-        route.view === "report" &&
-        route.reportId &&
-        token
-      ) {
-        loadReport(route.reportId);
-      } else {
-        setReportLoading(false);
-        setReportError("");
-      }
-    };
-
-    if (!window.location.hash) {
-      writeBrowserRoute("dashboard", null, true);
-    } else {
-      restoreRouteFromBrowserHistory();
+    // Convert an older hash URL to its clean path equivalent.
+    if (window.location.hash.startsWith("#/")) {
+      writeBrowserRoute(
+        route.view,
+        route.reportId,
+        true
+      );
     }
 
-    window.addEventListener(
+    setView(route.view);
+    setMobileNavOpen(false);
+
+    if (
+      route.view === "report" &&
+      route.reportId &&
+      token
+    ) {
+      loadReport(route.reportId);
+    } else {
+      setReportLoading(false);
+      setReportError("");
+    }
+  };
+
+  restoreRouteFromBrowserHistory();
+
+  window.addEventListener(
+    "popstate",
+    restoreRouteFromBrowserHistory
+  );
+
+  return () => {
+    window.removeEventListener(
       "popstate",
       restoreRouteFromBrowserHistory
     );
-
-    return () => {
-      window.removeEventListener(
-        "popstate",
-        restoreRouteFromBrowserHistory
-      );
-    };
-  }, [loadReport, token]);
+  };
+}, [loadReport, token]);
 
   /* ==========================================
      AI RECOMMENDATIONS
